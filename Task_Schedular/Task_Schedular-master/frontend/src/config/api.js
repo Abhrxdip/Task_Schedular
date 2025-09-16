@@ -21,5 +21,7 @@ export const API_BASE_URL = getApiBaseUrl();
 
 export const API_ENDPOINTS = {
   TASKS: '/tasks',
-  HEALTH: '/health'
+  HEALTH: '/health',
+  PERSONS: '/persons',
+  NOTIFY_RUN: '/notify/run'
 };

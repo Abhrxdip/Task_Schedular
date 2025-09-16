@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Plus, Calendar, Clock, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, Calendar, Clock, AlertCircle, CheckCircle, XCircle, Users, Bell } from 'lucide-react';
 import { API_BASE_URL, API_ENDPOINTS } from '../config/api';
 
 const TaskScheduler = () => {
@@ -13,11 +13,16 @@ const TaskScheduler = () => {
     description: '',
     deadline: '',
     priority: 'medium',
-    status: 'pending'
+    status: 'pending',
+    assignee: '',
+    email: ''
   });
+  const [persons, setPersons] = useState([]);
+  const [notifyStatus, setNotifyStatus] = useState('');
 
   useEffect(() => {
     fetchTasks();
+    fetchPersons();
   }, []);
 
   const fetchTasks = async () => {
@@ -31,6 +36,15 @@ const TaskScheduler = () => {
       setError('Failed to fetch tasks. Please check if the backend server is running.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPersons = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}${API_ENDPOINTS.PERSONS}`);
+      setPersons(response.data);
+    } catch (err) {
+      // optional: could set error
     }
   };
 
@@ -51,14 +65,29 @@ const TaskScheduler = () => {
         description: '',
         deadline: '',
         priority: 'medium',
-        status: 'pending'
+        status: 'pending',
+        assignee: '',
+        email: ''
       });
       setShowAddForm(false);
+      fetchPersons();
     } catch (err) {
       console.error('Error adding task:', err);
       setError('Failed to add task. Please check your connection and try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const triggerNotifier = async () => {
+    try {
+      setNotifyStatus('Running...');
+      await axios.post(`${API_BASE_URL}${API_ENDPOINTS.NOTIFY_RUN}`);
+      setNotifyStatus('Notifications processed');
+    } catch (err) {
+      setNotifyStatus(`Failed: ${err.message || 'Unknown error'}`);
+    } finally {
+      setTimeout(() => setNotifyStatus(''), 4000);
     }
   };
 
@@ -168,6 +197,33 @@ const TaskScheduler = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Assignee
+                  </label>
+                  <input
+                    type="text"
+                    value={newTask.assignee}
+                    onChange={(e) => setNewTask({...newTask, assignee: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Person name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={newTask.email}
+                    onChange={(e) => setNewTask({...newTask, email: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="person@example.com"
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Deadline
                   </label>
                   <input
@@ -217,7 +273,28 @@ const TaskScheduler = () => {
         {/* Tasks List */}
         <div className="bg-white rounded-lg shadow-md">
           <div className="p-6 border-b border-gray-200">
-            <h2 className="text-xl font-semibold">Tasks ({tasks.length})</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Tasks ({tasks.length})</h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={fetchPersons}
+                  className="flex items-center gap-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-800 px-3 py-2 rounded"
+                  title="Refresh persons"
+                >
+                  <Users className="w-4 h-4" /> Persons
+                </button>
+                <button
+                  onClick={triggerNotifier}
+                  className="flex items-center gap-2 text-sm bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-2 rounded"
+                  title="Run notifier now"
+                >
+                  <Bell className="w-4 h-4" /> Notify now
+                </button>
+              </div>
+            </div>
+            {notifyStatus && (
+              <p className="mt-2 text-sm text-gray-600">{notifyStatus}</p>
+            )}
           </div>
           
           {loading && !tasks.length ? (
@@ -282,6 +359,33 @@ const TaskScheduler = () => {
               ))}
             </div>
           )}
+        </div>
+
+        <div className="bg-white rounded-lg shadow-md mt-6">
+          <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+            <h2 className="text-xl font-semibold flex items-center gap-2"><Users className="w-5 h-5"/> Persons</h2>
+            <button
+              onClick={fetchPersons}
+              className="text-sm bg-gray-100 hover:bg-gray-200 text-gray-800 px-3 py-2 rounded"
+            >Refresh</button>
+          </div>
+          <div className="p-6">
+            {persons.length === 0 ? (
+              <p className="text-gray-500">No persons yet.</p>
+            ) : (
+              <div className="divide-y divide-gray-200">
+                {persons.map((p, idx) => (
+                  <div key={idx} className="py-3 flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-gray-800">{p.assignee || 'Unknown'}</p>
+                      <p className="text-sm text-gray-500">{p.email || 'No email'}</p>
+                    </div>
+                    <span className="text-sm text-gray-600">Tasks: {p.taskCount}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
